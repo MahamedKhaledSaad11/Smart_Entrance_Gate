@@ -1,0 +1,78 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-5 col-12">
+        <div class="glass-card p-4 animate-fade-in">
+            <div class="text-center mb-4">
+                <i class="fas fa-user-plus fa-3x text-info"></i>
+                <h3 class="mt-3">Create Account</h3>
+                <p class="text-muted small">Join the Smart Gate System</p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                    <div class="alert alert-danger p-2 small">
+                        Please correct the errors below.
+                    </div>
+                {% endif %}
+
+                <div class="custom-django-form">
+                    {{ form.as_p }}
+                </div>
+
+                <button type="submit" class="btn btn-info w-100 py-2 fw-bold mt-3 shadow-sm">
+                    Register Now
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .custom-django-form p {
+        margin-bottom: 1rem;
+    }
+    
+    .custom-django-form label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #e2e8f0; /* لون فاتح للنصوص */
+        font-weight: 500;
+    }
+
+    .custom-django-form input {
+        width: 100%;
+        padding: 0.75rem;
+        background-color: rgba(0, 0, 0, 0.2); /* خلفية شفافة غامقة */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: white;
+        transition: all 0.3s ease;
+    }
+
+    .custom-django-form input:focus {
+        outline: none;
+        border-color: #0dcaf0; /* لون الـ Info */
+        background-color: rgba(0, 0, 0, 0.4);
+        box-shadow: 0 0 10px rgba(13, 202, 240, 0.2);
+    }
+
+    .custom-django-form .helptext {
+        display: block;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 0.25rem;
+    }
+
+    .custom-django-form ul.errorlist {
+        list-style: none;
+        padding: 0;
+        color: #ff6b6b;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+</style>
+{% endblock %}

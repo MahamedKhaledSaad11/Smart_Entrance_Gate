@@ -1,0 +1,170 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-12">
+        <div class="glass-card p-4 text-center">
+            <h3 class="mb-3">Face ID Setup</h3>
+            
+            <div class="d-flex justify-content-between mb-4 px-3">
+                <span id="s1" class="step-active text-info fw-bold">1. Front</span>
+                <span id="s2" class="text-muted">2. Left</span>
+                <span id="s3" class="text-muted">3. Right</span>
+                <span id="s4" class="text-muted">4. Glasses</span>
+                <span id="s5" class="text-muted">5. Smile</span>
+            </div>
+
+            <div class="position-relative mb-3">
+                <video id="video" autoplay playsinline class="w-100 rounded border border-secondary" style="transform: scaleX(-1); object-fit: cover; max-height: 400px;"></video>
+                <canvas id="canvas" class="d-none"></canvas>
+                
+                <div id="overlay-msg" class="position-absolute top-50 start-50 translate-middle badge bg-danger d-none" style="font-size: 1.2rem; opacity: 0.9;">
+                    Face Not Clear!
+                </div>
+            </div>
+
+            <h5 id="instruction" class="text-warning mb-3 fw-bold animate-pulse">Step 1: Look Straight at the camera</h5>
+            
+            <p id="error-msg" class="text-danger fw-bold small" style="min-height: 20px;"></p>
+
+            <button id="captureBtn" class="btn btn-info w-100 py-3 fw-bold shadow-sm" onclick="captureStep()">
+                <i class="fas fa-camera me-2"></i> Capture & Validate
+            </button>
+            
+            <div id="loading" class="d-none mt-2 text-light">
+                <div class="spinner-border spinner-border-sm text-info"></div> Processing...
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .step-active { border-bottom: 3px solid #0dcaf0; transition: all 0.3s; }
+    .animate-pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+</style>
+
+<script>
+    let currentStep = 1;
+    let video = document.getElementById('video');
+    const instructions = {
+        1: "Look Straight Ahead", 2: "Turn Head LEFT slightly", 3: "Turn Head RIGHT slightly",
+        4: "Front again (or with glasses)", 5: "Smile Wide!"
+    };
+
+    // تشغيل الكاميرا
+    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" } })
+    .then(s => video.srcObject = s)
+    .catch(err => alert("Camera Error: " + err));
+
+    function captureStep() {
+        // تنظيف الرسائل القديمة
+        document.getElementById('error-msg').innerText = "";
+        document.getElementById('overlay-msg').classList.add('d-none');
+        
+        let canvas = document.getElementById('canvas');
+        canvas.width = video.videoWidth; 
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        canvas.toBlob(blob => {
+            uploadFrame(blob);
+        }, 'image/jpeg', 0.9); // جودة 90%
+    }
+
+    function uploadFrame(blob) {
+        // 1. تفعيل وضع اللودينج (بدون إيقاف الفيديو)
+        setLoadingState(true);
+
+        let fd = new FormData();
+        fd.append('image', blob);
+        fd.append('step', currentStep);
+
+        fetch('/validate_face/', { 
+            method: 'POST', 
+            body: fd 
+        })
+        .then(r => r.json())
+        .then(data => {
+            // 2. إلغاء وضع اللودينج فوراً
+            setLoadingState(false);
+            
+            if (data.status === 'success') {
+                // نجح -> انقل للخطوة التالية
+                nextStep(blob);
+            } else {
+                // فشل -> اعرض رسالة الخطأ والزرار شغال
+                showError(data.msg);
+            }
+        })
+        .catch(err => {
+            setLoadingState(false);
+            showError("Connection Error. Try again.");
+            console.error(err);
+        });
+    }
+
+    function setLoadingState(isLoading) {
+        const btn = document.getElementById('captureBtn');
+        const loading = document.getElementById('loading');
+        
+        if (isLoading) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+            loading.classList.remove('d-none');
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-camera me-2"></i> Capture & Validate';
+            loading.classList.add('d-none');
+        }
+    }
+
+    function showError(msg) {
+        // عرض رسالة الخطأ تحت الزرار وفي نص الفيديو
+        const errDiv = document.getElementById('error-msg');
+        const overlay = document.getElementById('overlay-msg');
+        
+        errDiv.innerText = "❌ " + msg;
+        overlay.innerText = msg;
+        overlay.classList.remove('d-none');
+        
+        // إخفاء الـ Overlay بعد ثانيتين
+        setTimeout(() => {
+            overlay.classList.add('d-none');
+        }, 2000);
+        
+        // اهتزاز الزرار للتنبيه
+        const btn = document.getElementById('captureBtn');
+        btn.classList.add('btn-danger');
+        setTimeout(() => btn.classList.remove('btn-danger'), 300);
+    }
+
+    function nextStep(lastBlob) {
+        // تحديث الخطوة في الـ UI
+        document.getElementById(`s${currentStep}`).classList.remove('step-active', 'text-info', 'fw-bold');
+        document.getElementById(`s${currentStep}`).classList.add('text-muted');
+        
+        currentStep++;
+        
+        if (currentStep > 5) {
+            finishEnrollment(lastBlob);
+            return;
+        }
+
+        document.getElementById(`s${currentStep}`).classList.add('step-active', 'text-info', 'fw-bold');
+        document.getElementById(`s${currentStep}`).classList.remove('text-muted');
+        document.getElementById('instruction').innerText = `Step ${currentStep}: ${instructions[currentStep]}`;
+    }
+
+    function finishEnrollment(finalBlob) {
+        document.getElementById('instruction').innerText = "Finalizing Profile...";
+        document.getElementById('instruction').className = "text-success fw-bold";
+        setLoadingState(true); // قفل الزرار
+        
+        let fd = new FormData();
+        fd.append('final_image', finalBlob, 'profile.jpg');
+        
+        fetch('/save_face_profile/', { method: 'POST', body: fd, headers: {'X-CSRFToken': '{{ csrf_token }}'} })
+        .then(r => window.location.href = "{% url 'user_dashboard' %}");
+    }
+</script>
+{% endblock %}

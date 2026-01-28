@@ -1,0 +1,26 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center text-center" style="margin-top: 100px;">
+    <div class="col-md-8">
+        <h1 class="display-3 fw-bold mb-4 text-light">Secure Access Control</h1>
+        <p class="lead text-muted mb-5">
+            Smart Gate System Powered by Raspberry Pi 5 & AI.
+        </p>
+        
+        <div class="row gap-4 justify-content-center">
+            <div class="col-md-5 glass-card p-4 border border-secondary rounded bg-dark">
+                <i class="fas fa-users fa-3x mb-3 text-primary"></i>
+                <h3 class="text-light">User Management</h3>
+                <a href="{% url 'add_user' %}" class="btn btn-primary w-100 mt-2">Go to Users</a>
+            </div>
+            
+            <div class="col-md-5 glass-card p-4 border border-secondary rounded bg-dark">
+                <i class="fas fa-fingerprint fa-3x mb-3 text-info"></i>
+                <h3 class="text-light">Device Setup</h3>
+                <a href="{% url 'setup_finger' %}" class="btn btn-outline-info w-100 mt-2">Setup Device</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

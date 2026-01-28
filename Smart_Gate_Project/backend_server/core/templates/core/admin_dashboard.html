@@ -1,0 +1,102 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="row">
+    <div class="d-flex justify-content-between mb-3 align-items-center">
+        <h2>Admin Dashboard</h2>
+        <button onclick="wipeData()" class="btn btn-danger shadow-sm">
+            <i class="fas fa-trash-alt me-2"></i> Wipe All Fingerprints
+        </button>
+    </div>
+
+    <div class="mb-4 d-flex gap-3">
+        <a href="{% url 'signup' %}" class="btn btn-success shadow-sm">
+            <i class="fas fa-user-plus me-2"></i> Create New User
+        </a>
+
+        <a href="/admin/" target="_blank" class="btn btn-primary shadow-sm">
+            <i class="fas fa-database me-2"></i> Manage Full Database
+        </a>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="glass-card p-3">
+                <h5><i class="fas fa-history me-2"></i> Access Logs</h5>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-dark table-sm table-hover">
+                        <thead><tr><th>User</th><th>Method</th><th>Time</th></tr></thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.user.username }}</td>
+                                <td><span class="badge bg-secondary">{{ log.access_method }}</span></td>
+                                <td>{{ log.timestamp|date:"H:i:s" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted">No logs yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="glass-card p-3 mb-3">
+                <h5 class="text-info"><i class="fas fa-fingerprint me-2"></i> Enroll Fingerprint</h5>
+                <select id="fp_user" class="form-select mb-2 bg-dark text-light border-secondary">
+                    <option value="" disabled selected>Select User...</option>
+                    {% for u in no_finger %}
+                        <option value="{{ u.id }}">{{ u.username }}</option>
+                    {% empty %}
+                        <option disabled>All users enrolled!</option>
+                    {% endfor %}
+                </select>
+                <button onclick="enroll()" class="btn btn-info w-100 fw-bold">Connect & Enroll</button>
+                <p id="msg" class="text-warning small mt-2 fw-bold text-center"></p>
+            </div>
+
+            <div class="glass-card p-3">
+                <h5 class="text-warning"><i class="fas fa-id-card me-2"></i> Assign RFID</h5>
+                <form action="{% url 'update_rfid' %}" method="POST">
+                    {% csrf_token %}
+                    <select name="user_id" class="form-select mb-2 bg-dark text-light border-secondary">
+                        {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+                    </select>
+                    <input type="text" name="rfid_code" class="form-control mb-2 bg-dark text-light border-secondary" placeholder="Scan/Type RFID Code">
+                    <button class="btn btn-warning w-100 fw-bold">Update RFID</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function enroll() {
+        let uid = document.getElementById('fp_user').value;
+        let msg = document.getElementById('msg');
+        
+        if(!uid) return alert("Please select a user first!");
+        
+        msg.innerText = "Sending command...";
+        msg.className = "text-warning small mt-2 fw-bold text-center";
+
+        let fd = new FormData(); fd.append('user_id', uid);
+        fetch('/trigger_enroll/', {method:'POST', body:fd})
+        .then(r=>r.json())
+        .then(d => {
+            msg.innerText = d.msg;
+            if(d.status === 'ok') msg.className = "text-success small mt-2 fw-bold text-center";
+            else msg.className = "text-danger small mt-2 fw-bold text-center";
+        });
+    }
+
+    function wipeData() {
+        if(confirm("WARNING: This will wipe ALL fingerprints from the physical sensor memory. Are you sure?")) {
+            fetch('/trigger_delete_all/', {method:'POST'})
+            .then(r=>r.json())
+            .then(d=>alert(d.msg));
+        }
+    }
+</script>
+{% endblock %}

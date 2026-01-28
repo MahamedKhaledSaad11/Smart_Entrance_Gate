@@ -1,0 +1,27 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="glass-card col-md-6 mx-auto text-center">
+    <h2>Link Fingerprint</h2>
+    <form id="enrollForm">
+        <select class="form-select mb-3" id="userSelect">
+            {% for user in users %}
+            <option value="{{ user.name }}">{{ user.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="password" id="password" class="form-control mb-3" placeholder="Admin Password">
+        <button type="button" class="btn btn-info w-100" onclick="start()">Connect ESP32</button>
+    </form>
+    <h4 id="status" class="mt-3"></h4>
+</div>
+<script>
+    function start() {
+        let u = document.getElementById('userSelect').value;
+        let p = document.getElementById('password').value;
+        fetch('/api/trigger-enroll/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `user_name=${u}&password=${p}`
+        }).then(r=>r.json()).then(d=> document.getElementById('status').innerText = d.msg);
+    }
+</script>
+{% endblock %}

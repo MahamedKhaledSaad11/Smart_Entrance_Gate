@@ -1,0 +1,169 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="glass-card p-4 rounded bg-dark border border-secondary">
+            <h2 class="text-center mb-4 text-light"><i class="fas fa-camera me-2"></i> New User Registration</h2>
+
+            {% if success %}
+                <div class="alert alert-success">{{ success }}</div>
+            {% endif %}
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label class="form-label text-light">Full Name</label>
+                <input type="text" id="userName" class="form-control bg-dark text-light border-secondary" placeholder="Ex: Ahmed Ali">
+            </div>
+
+            <div class="camera-container mb-3 text-center position-relative">
+                <video id="video" autoplay playsinline class="w-100 rounded border border-info"></video>
+                <canvas id="canvas" class="d-none"></canvas>
+                
+                <div id="flash" class="position-absolute top-0 start-0 w-100 h-100 bg-white" style="opacity:0; pointer-events:none; transition: opacity 0.1s;"></div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="button" id="startCameraBtn" class="btn btn-outline-info" onclick="startCamera()">
+                    <i class="fas fa-video me-2"></i> Open Camera
+                </button>
+                
+                <button type="button" id="captureBtn" class="btn btn-warning fw-bold d-none" onclick="captureSequence()">
+                    <i class="fas fa-camera me-2"></i> Capture 5 Photos (Auto)
+                </button>
+
+                <button type="button" id="submitBtn" class="btn btn-primary fw-bold d-none" onclick="uploadData()">
+                    <i class="fas fa-save me-2"></i> Create User
+                </button>
+            </div>
+
+            <div class="mt-3">
+                <p class="text-muted small mb-1">Captured Photos: <span id="countBadge" class="badge bg-secondary">0/5</span></p>
+                <div id="gallery" class="d-flex gap-2 overflow-auto py-2"></div>
+            </div>
+
+            <div id="loading" class="text-center mt-3 d-none">
+                <div class="spinner-border text-info" role="status"></div>
+                <p class="mt-2 text-info">Training AI Model... Please wait.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let video = document.getElementById('video');
+    let canvas = document.getElementById('canvas');
+    let gallery = document.getElementById('gallery');
+    let capturedBlobs = []; // هنخزن الصور هنا
+
+    // 1. تشغيل الكاميرا
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" } })
+            .then(stream => {
+                video.srcObject = stream;
+                document.getElementById('startCameraBtn').classList.add('d-none');
+                document.getElementById('captureBtn').classList.remove('d-none');
+            })
+            .catch(err => {
+                alert("Error opening camera: " + err);
+            });
+    }
+
+    // 2. التقاط 5 صور ورا بعض أوتوماتيك
+    async function captureSequence() {
+        capturedBlobs = [];
+        gallery.innerHTML = '';
+        document.getElementById('captureBtn').disabled = true;
+        document.getElementById('captureBtn').innerText = "Capturing...";
+
+        for (let i = 1; i <= 5; i++) {
+            captureFrame(i);
+            await new Promise(r => setTimeout(r, 800)); // استنى 800 مللي ثانية بين كل صورة
+        }
+
+        // بعد ما يخلص
+        document.getElementById('captureBtn').classList.add('d-none');
+        document.getElementById('submitBtn').classList.remove('d-none');
+        alert("Done! Captured 5 photos. Click 'Create User' to save.");
+    }
+
+    // دالة التقاط صورة واحدة
+    function captureFrame(index) {
+        // Flash Effect
+        let flash = document.getElementById('flash');
+        flash.style.opacity = 0.8;
+        setTimeout(() => flash.style.opacity = 0, 100);
+
+        // Draw to Canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        let ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to Blob (File)
+        canvas.toBlob(blob => {
+            capturedBlobs.push(blob);
+            
+            // Show Preview
+            let img = document.createElement('img');
+            img.src = URL.createObjectURL(blob);
+            img.height = 70;
+            img.className = "rounded border border-secondary animate-fade-in";
+            gallery.appendChild(img);
+            
+            // Update Counter
+            document.getElementById('countBadge').innerText = `${capturedBlobs.length}/5`;
+        }, 'image/jpeg', 0.95);
+    }
+
+    // 3. إرسال البيانات للسيرفر
+    function uploadData() {
+        let name = document.getElementById('userName').value;
+        if (!name) { alert("Please enter a name!"); return; }
+        if (capturedBlobs.length < 5) { alert("Please capture 5 photos first!"); return; }
+
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('submitBtn').disabled = true;
+
+        // تجهيز البيانات كأنها HTML Form
+        let formData = new FormData();
+        formData.append('name', name);
+        
+        // إضافة الصور للريكوست
+        capturedBlobs.forEach((blob, index) => {
+            formData.append('photos', blob, `capture_${index}.jpg`);
+        });
+
+        // إرسال للـ Django Backend
+        fetch('', { // يبعت لنفس الصفحة
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload(); // إعادة تحميل عشان تظهر رسالة النجاح
+            } else {
+                alert("Server Error");
+                document.getElementById('loading').classList.add('d-none');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error uploading data");
+            document.getElementById('loading').classList.add('d-none');
+        });
+    }
+</script>
+
+<style>
+    /* تحسينات للشكل */
+    .camera-container video {
+        transform: scaleX(-1); /* عكس الصورة زي المراية */
+    }
+</style>
+{% endblock %}
